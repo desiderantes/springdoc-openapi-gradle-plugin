@@ -1,15 +1,18 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
 	`java-gradle-plugin`
-	id("com.gradle.plugin-publish") version "1.2.0"
-	id("org.sonarqube") version "3.1.1"
-	kotlin("jvm") version "1.8.20"
+	alias(libs.plugins.plugin.publish)
+	alias(libs.plugins.sonarqube)
+	kotlin("jvm") version libs.versions.kotlin
+	`kotlin-dsl`
 	`maven-publish`
-	id("com.github.ben-manes.versions") version "0.38.0"
-	id("io.gitlab.arturbosch.detekt") version "1.23.1"
+	alias(libs.plugins.versions)
+	alias(libs.plugins.detekt)
 }
 
 group = "org.springdoc"
-version = "1.9.0"
+version = "2.0.0"
 
 sonarqube {
 	properties {
@@ -27,6 +30,7 @@ repositories {
 		name = "Gradle Plugins Maven Repository"
 		url = uri("https://plugins.gradle.org/m2/")
 	}
+	mavenLocal()
 }
 
 publishing {
@@ -40,9 +44,9 @@ publishing {
 			url = if (version.toString()
 					.endsWith("SNAPSHOT")
 			) {
-			    snapshotsRepoUrl
+				snapshotsRepoUrl
 			} else {
-			    releasesRepoUrl
+				releasesRepoUrl
 			}
 			credentials {
 				username = System.getenv("OSSRH_USER")
@@ -54,19 +58,19 @@ publishing {
 
 dependencies {
 	implementation(kotlin("reflect"))
-	implementation("com.google.code.gson:gson:2.8.9")
-	implementation("org.awaitility:awaitility-kotlin:4.0.3")
-	implementation("com.github.psxpaul:gradle-execfork-plugin:0.2.0")
-	implementation("org.springframework.boot:spring-boot-gradle-plugin:2.7.14")
+	implementation(gradleKotlinDsl())
+	implementation(libs.klaxon)
+	implementation(libs.awaitility.kotlin)
+	implementation(libs.pluginlib.gradle.execfork)
+	implementation(libs.pluginlib.spring.boot)
 
 	testImplementation(gradleTestKit())
-	testImplementation(platform("org.junit:junit-bom:5.7.1"))
+	testImplementation(platform(libs.junit.bom))
 	testImplementation("org.junit.jupiter:junit-jupiter")
-	testImplementation("com.beust:klaxon:5.5")
-	testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.2")
-	testImplementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.2")
+	testImplementation(libs.jackson.kotlin)
+	testImplementation(libs.jackson.yaml)
 
-	detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.1")
+	detektPlugins(libs.detekt.formatting)
 }
 
 gradlePlugin {
@@ -83,17 +87,16 @@ gradlePlugin {
 	}
 }
 
-val jvmVersion: JavaLanguageVersion = JavaLanguageVersion.of(8)
 
 java {
-	toolchain.languageVersion.set(jvmVersion)
+	toolchain.languageVersion.set(libs.versions.java.map(JavaLanguageVersion::of))
 	// Recommended by https://docs.gradle.org/current/userguide/building_java_projects.html#sec:java_packaging
 	withSourcesJar()
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-	kotlinOptions {
-		jvmTarget = "1.$jvmVersion"
+	compilerOptions{
+		jvmTarget.set(libs.versions.java.map (JvmTarget::fromTarget))
 	}
 }
 
@@ -108,5 +111,5 @@ detekt {
 	parallel = true
 }
 tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
-	jvmTarget = "1.$jvmVersion"
+	jvmTarget = libs.versions.java.get()
 }

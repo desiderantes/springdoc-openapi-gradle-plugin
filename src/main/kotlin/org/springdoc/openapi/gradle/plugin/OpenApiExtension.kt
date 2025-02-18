@@ -25,6 +25,8 @@ open class OpenApiExtension @Inject constructor(
 		objects.mapProperty(String::class.java, String::class.java)
 	val requestHeaders: MapProperty<String, String> =
 		objects.mapProperty(String::class.java, String::class.java)
+	val bootRunTaskName: Property<String> = objects.property(String::class.java)
+	val classNameResolveTaskName: Property<String> = objects.property(String::class.java)
 	val customBootRun: CustomBootRunAction =
 		objects.newInstance(CustomBootRunAction::class.java)
 
@@ -34,6 +36,13 @@ open class OpenApiExtension @Inject constructor(
 		outputDir.convention(layout.buildDirectory)
 		waitTimeInSeconds.convention(DEFAULT_WAIT_TIME_IN_SECONDS)
 		groupedApiMappings.convention(emptyMap())
+		bootRunTaskName.convention(SPRING_BOOT_RUN_TASK_NAME)
+		classNameResolveTaskName.convention(SPRING_BOOT_RUN_MAIN_CLASS_NAME_TASK_NAME)
+	}
+
+	fun useTestBootRun() {
+		bootRunTaskName.set(SPRING_BOOT_TEST_RUN_TASK_NAME)
+		classNameResolveTaskName.set(SPRING_BOOT_RUN_TEST_MAIN_CLASS_NAME_TASK_NAME)
 	}
 
 	fun customBootRun(action: Action<CustomBootRunAction>) {

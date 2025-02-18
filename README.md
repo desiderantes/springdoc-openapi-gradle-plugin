@@ -6,10 +6,11 @@ Gradle plugin for springdoc-openapi.
 
 This plugin allows you to generate an OpenAPI 3 specification for a Spring Boot
 application from a Gradle build.
+
 Compatibility Notes
 -------------------
 
-The plugin is built on Gradle version 7.0.
+The plugin is built on Gradle version 8.12.1 and Java 17.
 
 Dependencies
 ------------
@@ -25,17 +26,17 @@ Gradle Groovy DSL
 
 ```groovy
 plugins {
-    id "org.springframework.boot" version "2.7.0"
-    id "org.springdoc.openapi-gradle-plugin" version "1.9.0"
+    id "org.springframework.boot" version "3.4.2"
+    id "org.springdoc.openapi-gradle-plugin" version "2.0.0"
 }
 ```
 
 Gradle Kotlin DSL
 
-```groovy
+```kotlin
 plugins {
-    id("org.springframework.boot") version "2.7.0"
-    id("org.springdoc.openapi-gradle-plugin") version "1.9.0"
+	id("org.springframework.boot") version "3.4.2"
+	id("org.springdoc.openapi-gradle-plugin") version "2.0.0"
 }
 ```
 
@@ -80,30 +81,34 @@ openApi {
 	trustStore.set("keystore/truststore.p12")
 	trustStorePassword.set("changeit".toCharArray())
 	groupedApiMappings.set(
-		["https://localhost:8080/v3/api-docs/groupA" to "swagger-groupA.json",
-			"https://localhost:8080/v3/api-docs/groupB" to "swagger-groupB.json"]
+		mapOf(
+			"https://localhost:8080/v3/api-docs/groupA" to "swagger-groupA.json",
+			"https://localhost:8080/v3/api-docs/groupB" to "swagger-groupB.json"
+		)
 	)
 	customBootRun {
-		args.set(["--spring.profiles.active=special"])
+		args.set(listOf("--spring.profiles.active=special"))
 	}
-	requestHeaders = [
-		"x-forwarded-host": "custom-host",
-	"x-forwarded-port": "7000"
-	]
+	requestHeaders = mapOf(
+		"x-forwarded-host" to "custom-host",
+		"x-forwarded-port" to "7000"
+	)
 }
 ```
 
-| Parameter            | Description                                                                                                                         | Required | Default                              |
-|----------------------|-------------------------------------------------------------------------------------------------------------------------------------|----------|--------------------------------------|
-| `apiDocsUrl`         | The URL from where the OpenAPI doc can be downloaded. If the url ends with `.yaml`, output will YAML format.                                                                                 | No       | http://localhost:8080/v3/api-docs    |
-| `outputDir`          | The output directory for the generated OpenAPI file                                                                                 | No       | $buildDir - Your project's build dir |
-| `outputFileName`     | Specifies the output file name.                            | No       | openapi.json                         |
-| `waitTimeInSeconds`  | Time to wait in seconds for your Spring Boot application to start, before we make calls to `apiDocsUrl` to download the OpenAPI doc | No       | 30 seconds                           |
-| `trustStore`         | Path to a trust store that contains custom trusted certificates.                                                                    | No       | `<None>`                             |
-| `trustStorePassword` | Password to open Trust Store                                                                                                        | No       | `<None>`                             |
-| `groupedApiMappings` | A map of URLs (from where the OpenAPI docs can be downloaded) to output file names                                                  | No       | []                                   |
-| `customBootRun`      | Any bootRun property that you would normal need to start your spring boot application.                                              | No       | (N/A)                                |
-| `requestHeaders`     | customize Generated server url, relies on `server.forward-headers-strategy=framework`                                      | No       | (N/A)                                |
+| Parameter                  | Description                                                                                                                         | Required | Default                              |
+|----------------------------|-------------------------------------------------------------------------------------------------------------------------------------|----------|--------------------------------------|
+| `apiDocsUrl`               | The URL from where the OpenAPI doc can be downloaded. If the url ends with `.yaml`, output will YAML format.                        | No       | http://localhost:8080/v3/api-docs    |
+| `outputDir`                | The output directory for the generated OpenAPI file                                                                                 | No       | $buildDir - Your project's build dir |
+| `outputFileName`           | Specifies the output file name.                                                                                                     | No       | openapi.json                         |
+| `waitTimeInSeconds`        | Time to wait in seconds for your Spring Boot application to start, before we make calls to `apiDocsUrl` to download the OpenAPI doc | No       | 30 seconds                           |
+| `trustStore`               | Path to a trust store that contains custom trusted certificates.                                                                    | No       | `<None>`                             |
+| `trustStorePassword`       | Password to open Trust Store                                                                                                        | No       | `<None>`                             |
+| `groupedApiMappings`       | A map of URLs (from where the OpenAPI docs can be downloaded) to output file names                                                  | No       | []                                   |
+| `customBootRun`            | Any bootRun property that you would normal need to start your spring boot application.                                              | No       | (N/A)                                |
+| `requestHeaders`           | customize Generated server url, relies on `server.forward-headers-strategy=framework`                                               | No       | (N/A)                                |
+| `bootRunTaskName`          | The name of the bootRun task to be used to start the Spring Boot application.                                                       | No       | bootRun                              |
+| `classNameResolveTaskName` | The name of the task to resolve the main class of the Spring Boot application.                                                      | No       | resolveMainClassName                 |
 
 ### `customBootRun` properties examples
 
@@ -115,15 +120,25 @@ as `args`, `jvmArgs`, `systemProperties` and `workingDir`.
 If you don't specify `customBootRun` parameter, this plugin uses the parameter specified
 to `bootRun` in Spring Boot Gradle Plugin.
 
+#### Running with Spring Boot Testcontainers Support
+
+AS a convenience, you can use the `useTestBootRun` method to configure this plugin to use the `bootTestRun` task available with the Spring Boot Testcontainers support added in Spring Boot since 3.1.x.
+
+```kotlin
+openApi {
+    useTestBootRun()
+}
+```
+
 #### Passing static args
 
 This allows for you to be able to just send the static properties when executing Spring
 application in `generateOpenApiDocs`.
 
-```
+```kotlin
 openApi {
     customBootRun {
-        args = ["--spring.profiles.active=special"] 
+        args.set(listOf("--spring.profiles.active=special")) 
     }
 }
 ```
@@ -183,7 +198,7 @@ OpenAPI doc.
    in `build.gradle.kts`
 
     ```
-    id("org.springdoc.openapi-gradle-plugin") version "1.8.0"
+    id("org.springdoc.openapi-gradle-plugin") version "2.0.0"
     ```
 
 3. Add the following to the spring boot apps `settings.gradle`

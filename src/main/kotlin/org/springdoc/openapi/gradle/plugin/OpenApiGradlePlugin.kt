@@ -4,9 +4,8 @@ import com.github.psxpaul.task.JavaExecFork
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.Task
-import org.gradle.api.UnknownDomainObjectException
 import org.gradle.api.tasks.TaskProvider
-import org.gradle.internal.jvm.Jvm
+import org.gradle.kotlin.dsl.named
 import org.springframework.boot.gradle.tasks.run.BootRun
 
 open class OpenApiGradlePlugin : Plugin<Project> {
@@ -26,59 +25,35 @@ open class OpenApiGradlePlugin : Plugin<Project> {
 	}
 
 	private fun generate(project: Project) = project.run {
-		springBoot3CompatibilityCheck()
+		val extension = extensions.findByName(EXTENSION_NAME) as OpenApiExtension
+
+		// The task, used to resolve the application's main class (`bootRunMainClassName`)
+		val bootRunMainClassNameTask = extension.classNameResolveTaskName.map {
+			tasks.named<Task>(it)
+		}.get()
 
 		// The task, used to run the Spring Boot application (`bootRun`)
-		val bootRunTask = tasks.named(SPRING_BOOT_RUN_TASK_NAME)
-		// The task, used to resolve the application's main class (`bootRunMainClassName`)
-		val bootRunMainClassNameTask =
-			try {
-				val task = tasks.named(SPRING_BOOT_RUN_MAIN_CLASS_NAME_TASK_NAME)
-				logger.debug(
-					"Detected Spring Boot task {}",
-					SPRING_BOOT_RUN_MAIN_CLASS_NAME_TASK_NAME
-				)
-				task
-			} catch (e: UnknownDomainObjectException) {
-				val task = tasks.named(SPRING_BOOT_3_RUN_MAIN_CLASS_NAME_TASK_NAME)
-				logger.debug(
-					"Detected Spring Boot task {}",
-					SPRING_BOOT_3_RUN_MAIN_CLASS_NAME_TASK_NAME
-				)
-				task
-			}
-
-		val extension = extensions.findByName(EXTENSION_NAME) as OpenApiExtension
+		val bootRunTask = tasks.named(extension.bootRunTaskName.get())
 		val customBootRun = extension.customBootRun
 		// Create a forked version spring boot run task
-		val forkedSpringBoot = tasks.named(
-			FORKED_SPRING_BOOT_RUN_TASK_NAME,
-			JavaExecFork::class.java
-		) { fork ->
-			fork.dependsOn(tasks.named(bootRunMainClassNameTask.name))
-			fork.onlyIf { needToFork(bootRunTask, customBootRun, fork) }
+		val forkedSpringBoot: TaskProvider<JavaExecFork> = tasks.named<JavaExecFork>(
+			FORKED_SPRING_BOOT_RUN_TASK_NAME
+		) {
+			this.dependsOn(tasks.named(bootRunMainClassNameTask.name))
+			this.onlyIf { needToFork(bootRunTask, customBootRun, this) }
 		}
 
 		val openApiTask =
-			tasks.named(OPEN_API_TASK_NAME, OpenApiGeneratorTask::class.java) {
+			tasks.named<OpenApiGeneratorTask>(OPEN_API_TASK_NAME, OpenApiGeneratorTask::class.java) {
 				// This is my task. Before I can run it, I have to run the dependent tasks
-				it.dependsOn(forkedSpringBoot)
+				this.dependsOn(forkedSpringBoot)
 
 				// Ensure the task inputs match those of the original application
-				it.inputs.files(bootRunTask.get().inputs.files)
+				this.inputs.files(bootRunTask.get().inputs.files)
 			}
 
 		// The forked task need to be terminated as soon as my task is finished
 		forkedSpringBoot.get().stopAfter = openApiTask as TaskProvider<Task>
-	}
-
-	private fun Project.springBoot3CompatibilityCheck() {
-		val tasksNames = tasks.names
-		val boot2TaskName = "bootRunMainClassName"
-		val boot3TaskName = "resolveMainClassName"
-		if (!tasksNames.contains(boot2TaskName) && tasksNames.contains(boot3TaskName)) {
-		    tasks.register(boot2TaskName) { it.dependsOn(tasks.named(boot3TaskName)) }
-		}
 	}
 
 	private fun needToFork(
@@ -101,7 +76,7 @@ open class OpenApiGradlePlugin : Plugin<Project> {
 			workingDir = customBootRun.workingDir.asFile.orNull
 				?: fork.temporaryDir
 			args = customBootRun.args.orNull?.takeIf { it.isNotEmpty() }?.toMutableList()
-				?: bootRun.args?.toMutableList() ?: mutableListOf()
+				?: bootRun.args.toMutableList()
 			classpath = customBootRun.classpath.takeIf { !it.isEmpty }
 				?: bootRun.classpath
 			main = customBootRun.mainClass.orNull
@@ -110,9 +85,6 @@ open class OpenApiGradlePlugin : Plugin<Project> {
 				?: bootRun.jvmArgs
 			environment = customBootRun.environment.orNull?.takeIf { it.isNotEmpty() }
 				?: bootRun.environment
-			if (Jvm.current().toString().startsWith("1.8")) {
-				killDescendants = false
-			}
 		}
 		return true
 	}

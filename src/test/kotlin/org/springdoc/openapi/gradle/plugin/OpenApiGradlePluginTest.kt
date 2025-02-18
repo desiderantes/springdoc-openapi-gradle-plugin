@@ -31,29 +31,34 @@ class OpenApiGradlePluginTest {
 	private val pathsField = "paths"
 	private val openapiField = "openapi"
 
-	private val baseBuildGradle = """plugins {
+	private val baseBuildGradle =
+		//language=gradle
+		"""
+		    plugins {
             id 'java'
-            id 'org.springframework.boot' version '2.7.6'
-            id 'io.spring.dependency-management' version '1.0.15.RELEASE'
+            id 'org.springframework.boot' version '3.4.2'
+            id 'io.spring.dependency-management' version '1.1.7'
             id 'org.springdoc.openapi-gradle-plugin'
         }
         
         group = 'com.example'
         version = '0.0.1-SNAPSHOT'
-        sourceCompatibility = '8'
+        sourceCompatibility = '17'
         
         repositories {
             mavenCentral()
         }
         
         dependencies {
-            implementation 'org.springframework.boot:spring-boot-starter-web'
-            implementation 'org.springdoc:springdoc-openapi-webmvc-core:1.6.13'
+            implementation("org.springframework.boot:spring-boot-starter-web")
+            implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.5")
+						testImplementation("org.springframework.boot:spring-boot-testcontainers")
         }
     """.trimIndent()
 
 	companion object {
 		val logger: Logger = LoggerFactory.getLogger(OpenApiGradlePluginTest::class.java)
+		const val DEFAULT_OPENAPI_VERSION = "3.1.0"
 	}
 
 	@BeforeEach
@@ -440,6 +445,23 @@ class OpenApiGradlePluginTest {
 		assertOpenApiJsonFile(2)
 	}
 
+	@Test
+	fun `can run from a different bootRun task`() {
+		buildFile.writeText(
+			"""
+			$baseBuildGradle
+            openApi {
+							bootRunTaskName = "$SPRING_BOOT_TEST_RUN_TASK_NAME"
+							classNameResolveTaskName = "$SPRING_BOOT_RUN_TEST_MAIN_CLASS_NAME_TASK_NAME"
+						}
+			""".trimMargin()
+		)
+
+		// Run the same build with added source file
+		assertEquals(TaskOutcome.SUCCESS, openApiDocsTask(runTheBuild()).outcome)
+		assertOpenApiJsonFile(2)
+	}
+
 	private fun runTheBuild(vararg additionalArguments: String = emptyArray()) =
 		GradleRunner.create()
 			.withProjectDir(projectTestDir)
@@ -453,7 +475,7 @@ class OpenApiGradlePluginTest {
 		buildDir: File = projectBuildDir
 	) {
 		val openApiJson = getOpenApiJsonAtLocation(File(buildDir, outputJsonFileName))
-		assertEquals("3.0.1", openApiJson.string(openapiField))
+		assertEquals(DEFAULT_OPENAPI_VERSION, openApiJson.string(openapiField))
 		assertEquals(expectedPathCount, openApiJson.obj(pathsField)!!.size)
 	}
 
@@ -468,7 +490,7 @@ class OpenApiGradlePluginTest {
 		val mapper = ObjectMapper(YAMLFactory())
 		mapper.registerModule(KotlinModule.Builder().build())
 		val node = mapper.readTree(File(buildDir, outputJsonFileName))
-		assertEquals("3.0.1", node.get(openapiField).asText())
+		assertEquals(DEFAULT_OPENAPI_VERSION, node.get(openapiField).asText())
 		assertEquals(expectedPathCount, node.get(pathsField)!!.size())
 	}
 

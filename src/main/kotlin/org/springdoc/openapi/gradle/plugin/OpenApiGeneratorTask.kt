@@ -1,25 +1,16 @@
 package org.springdoc.openapi.gradle.plugin
 
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonObject
-import com.google.gson.JsonSyntaxException
+import com.beust.klaxon.Klaxon
 import org.awaitility.Durations
 import org.awaitility.core.ConditionTimeoutException
-import org.awaitility.kotlin.atMost
-import org.awaitility.kotlin.await
-import org.awaitility.kotlin.ignoreException
-import org.awaitility.kotlin.until
-import org.awaitility.kotlin.withPollInterval
+import org.awaitility.kotlin.*
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.*
 import org.gradle.api.tasks.Optional
-import org.gradle.api.tasks.OutputDirectory
-import org.gradle.api.tasks.TaskAction
 import java.io.FileInputStream
 import java.net.ConnectException
 import java.net.HttpURLConnection
@@ -28,7 +19,7 @@ import java.security.KeyStore
 import java.security.SecureRandom
 import java.time.Duration
 import java.time.temporal.ChronoUnit.SECONDS
-import java.util.Locale
+import java.util.*
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.KeyManager
 import javax.net.ssl.SSLContext
@@ -156,12 +147,14 @@ open class OpenApiGeneratorTask : DefaultTask() {
 	}
 
 	private fun prettifyJson(response: String): String {
-		val gson = GsonBuilder().setPrettyPrinting().create()
 		try {
-			val googleJsonObject = gson.fromJson(response, JsonObject::class.java)
-			return gson.toJson(googleJsonObject)
-		} catch (e: RuntimeException) {
-			throw JsonSyntaxException(
+			return if (response.startsWith("[")) {
+				Klaxon().parseJsonArray(response.reader()).toJsonString(true)
+			} else {
+				Klaxon().parseJsonObject(response.reader()).toJsonString(true)
+			}
+		} catch (e: Exception) {
+			throw RuntimeException(
 				"Failed to parse the API docs response string. " +
 						"Please ensure that the response is in the correct format. response=$response",
 				e
